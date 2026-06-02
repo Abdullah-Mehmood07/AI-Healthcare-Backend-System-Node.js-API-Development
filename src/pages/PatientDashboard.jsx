@@ -238,6 +238,49 @@ const PatientDashboard = () => {
         }
     };
 
+    const [summarizingReport, setSummarizingReport] = useState(false);
+    const [selectedReport, setSelectedReport] = useState(null);
+    const [labReportText, setLabReportText] = useState('');
+
+    const handleGetLabSummary = async (reportId) => {
+        setSummarizingReport(true);
+        const textToExplain = labReportText.trim() || 
+            "Complete Blood Count (CBC) Results: Hemoglobin: 13.5 g/dL (Normal: 12.0-15.5 g/dL). White Blood Cell Count (WBC): 11.2 x 10^9/L (Normal: 4.5-11.0 x 10^9/L) - Slightly Elevated. Platelets: 250 x 10^9/L (Normal: 150-450 x 10^9/L). Note: Patient presents with mild leukocytosis which may indicate a minor infection.";
+        
+        try {
+            const res = await fetch(`http://localhost:5000/api/ai/summarize-lab/${reportId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${userInfo.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reportText: textToExplain })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                alert("AI Summary generated successfully!");
+                
+                // Fetch updated reports list
+                const listRes = await fetch('http://localhost:5000/api/upload/my-reports', {
+                    headers: { 'Authorization': `Bearer ${userInfo.token}` }
+                });
+                const listData = await listRes.json();
+                const freshReports = Array.isArray(listData) ? listData : [];
+                setMyReports(freshReports);
+
+                const freshObj = freshReports.find(r => r._id === reportId);
+                setSelectedReport(freshObj || null);
+            } else {
+                const err = await res.json();
+                alert(`Summary failed: ${err.message}`);
+            }
+        } catch (err) {
+            alert("Error connecting to Gemini explainer.");
+        } finally {
+            setSummarizingReport(false);
+        }
+    };
     const handleSendClarifyRequest = async (e) => {
         e.preventDefault();
         if (!selectedPres || !clarifyText.trim()) return;
@@ -909,15 +952,69 @@ const PatientDashboard = () => {
                                         <tbody>
                                             {myReports.map((report) => (
                                                 <tr key={report._id}>
-                                                    <td style={{ padding: '10px' }}>{report.originalFileName}</td>
+                                                    <td style={{ padding: '10px', fontWeight: '500' }}>{report.originalFileName}</td>
                                                     <td>{report.testType || 'N/A'}</td>
-                                                    <td>{new Date(report.createdAt).toLocaleString()}</td>
-                                                    <td>{report.aiSummary?.plainSummary ? 'Available' : 'Not generated'}</td>
-                                                    <td><a href={`http://localhost:5000${report.filePath}`} target="_blank" rel="noreferrer">Open</a></td>
+                                                    <td>{new Date(report.createdAt).toLocaleDateString()}</td>
+                                                    <td>
+                                                        {report.aiSummary?.plainSummary ? (
+                                                            <button onClick={() => setSelectedReport(report)} className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', color: 'var(--primary-teal)', borderColor: 'var(--primary-teal)' }}>View Summary</button>
+                                                        ) : (
+                                                            <button onClick={() => handleGetLabSummary(report._id)} disabled={summarizingReport} className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+                                                                {summarizingReport ? 'Generating...' : 'Summarize with AI'}
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                    <td><a href={`http://localhost:5000${report.filePath}`} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>Open File</a></td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
+                                )}
+
+                                {selectedReport && selectedReport.aiSummary && (
+                                    <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <h3 style={{ margin: 0, color: '#166534', fontSize: '1.2rem' }}>
+                                                <i className="fas fa-microscope" style={{ marginRight: '8px' }}></i>
+                                                AI Summary: {selectedReport.originalFileName}
+                                            </h3>
+                                            <button onClick={() => setSelectedReport(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#166534' }}>&times;</button>
+                                        </div>
+                                        
+                                        <p style={{ fontSize: '1rem', color: '#14532D', lineHeight: '1.5', marginBottom: '1.5rem' }}>
+                                            <strong>Overview:</strong> {selectedReport.aiSummary.plainSummary}
+                                        </p>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                            <div>
+                                                <strong style={{ color: '#0F766E', display: 'block', marginBottom: '0.5rem' }}><i className="fas fa-check-circle"></i> Key Findings</strong>
+                                                <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#334155', fontSize: '0.9rem' }}>
+                                                    {selectedReport.aiSummary.keyFindings?.map((finding, idx) => (
+                                                        <li key={idx} style={{ marginBottom: '0.3rem' }}>{finding}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                            <div>
+                                                <strong style={{ color: '#B91C1C', display: 'block', marginBottom: '0.5rem' }}><i className="fas fa-exclamation-triangle"></i> Caution Flags</strong>
+                                                <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#7F1D1D', fontSize: '0.9rem' }}>
+                                                    {selectedReport.aiSummary.cautionFlags?.length > 0 ? (
+                                                        selectedReport.aiSummary.cautionFlags.map((flag, idx) => (
+                                                            <li key={idx} style={{ marginBottom: '0.3rem' }}>{flag}</li>
+                                                        ))
+                                                    ) : (
+                                                        <li>None detected.</li>
+                                                    )}
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        {selectedReport.aiSummary.suggestedFollowUp && (
+                                            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #BBF7D0' }}>
+                                                <strong style={{ color: '#1E3A8A' }}><i className="fas fa-user-md"></i> Suggested Follow-up:</strong>
+                                                <p style={{ margin: '0.3rem 0 0', color: '#1E40AF', fontSize: '0.9rem' }}>{selectedReport.aiSummary.suggestedFollowUp}</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </section>
