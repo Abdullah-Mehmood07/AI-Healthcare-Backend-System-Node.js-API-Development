@@ -9,6 +9,7 @@ const LabDashboard = () => {
     const [uploadFile, setUploadFile] = useState(null);
     const [patientId, setPatientId] = useState('');
     const [testType, setTestType] = useState('Blood Count (CBC)');
+    const [patients, setPatients] = useState([]);
 
     useEffect(() => {
         if (!userInfo.token || userInfo.role !== 'Lab Admin') {
@@ -37,7 +38,20 @@ const LabDashboard = () => {
             }
         };
 
+        const fetchPatients = async () => {
+            try {
+                const res = await fetch(`http://localhost:5000/api/users/patients`, {
+                    headers: { 'Authorization': `Bearer ${userInfo.token}` }
+                });
+                const data = await res.json();
+                setPatients(Array.isArray(data) ? data : []);
+            } catch (error) {
+                console.error("Failed to load patients", error);
+            }
+        };
+
         fetchHospitalDetails();
+        fetchPatients();
     }, [navigate, userInfo]);
 
     const handleLogout = () => {
@@ -108,8 +122,13 @@ const LabDashboard = () => {
                     <div className="glass-card" style={{ maxWidth: '600px', margin: '1rem 0' }}>
                         <form onSubmit={handleUpload}>
                             <div className="form-group" style={{ marginBottom: '1rem' }}>
-                                <label>Patient Database ID (optional)</label>
-                                <input type="text" placeholder="MongoDB Patient ObjectId" value={patientId} onChange={(e) => setPatientId(e.target.value)} />
+                                <label>Select Patient (optional)</label>
+                                <select value={patientId} onChange={(e) => setPatientId(e.target.value)}>
+                                    <option value="">-- No Patient / General Report --</option>
+                                    {patients.map(p => (
+                                        <option key={p._id} value={p._id}>{p.name} ({p.ghid || p.email})</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="form-group" style={{ marginBottom: '1rem' }}>

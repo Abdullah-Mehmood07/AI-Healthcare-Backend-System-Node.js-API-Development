@@ -190,6 +190,21 @@ router.get('/', protect, adminOnly, async (req, res) => {
     }
 });
 
+// @desc    Get all patients
+// @route   GET /api/users/patients
+// @access  Private (Staff only)
+router.get('/patients', protect, async (req, res) => {
+    if (req.user.role === 'Patient') {
+        return res.status(403).json({ message: 'Access denied. Only staff can view the patient directory.' });
+    }
+    try {
+        const patients = await User.find({ role: 'Patient' }).select('name email ghid national_id');
+        res.json(patients);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error fetching patients' });
+    }
+});
+
 // @desc    Delete user
 // @route   DELETE /api/users/:id
 // @access  Private/Web Admin
