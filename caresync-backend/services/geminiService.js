@@ -86,10 +86,10 @@ export const processConversation = async (history, hospitalId, toolsConfig) => {
                     name: "predictSpecialist",
                     description: "Predict the medical specialist needed based on the user's symptoms. Only use this if the user describes symptoms.",
                     parameters: {
-                        type: "OBJECT",
+                        type: "object",
                         properties: {
                             symptoms: {
-                                type: "STRING",
+                                type: "string",
                                 description: "A comma-separated list of the user's symptoms.",
                             },
                         },
@@ -100,10 +100,10 @@ export const processConversation = async (history, hospitalId, toolsConfig) => {
                     name: "findDoctors",
                     description: "Find a list of available doctors for a specific specialty in the user's hospital. Only use this if the user asks to see doctors.",
                     parameters: {
-                        type: "OBJECT",
+                        type: "object",
                         properties: {
                             specialty: {
-                                type: "STRING",
+                                type: "string",
                                 description: "The medical specialty, e.g. Cardiologist or Neurologist.",
                             },
                         },

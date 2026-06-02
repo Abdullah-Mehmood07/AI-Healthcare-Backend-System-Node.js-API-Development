@@ -7,9 +7,9 @@ const router = express.Router();
 /**
  * @desc    Get all services FOR A SPECIFIC HOSPITAL
  * @route   GET /api/services/hospital/:hospitalId
- * @access  Private (Logged in Users)
+ * @access  Public
  */
-router.get('/hospital/:hospitalId', protect, async (req, res) => {
+router.get('/hospital/:hospitalId', async (req, res) => {
     try {
         const services = await Service.find({ hospital: req.params.hospitalId });
         res.json(services);

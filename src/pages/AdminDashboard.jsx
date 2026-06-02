@@ -149,6 +149,32 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleImageUpload = async (e, hospitalId) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const res = await fetch(`${API_URL}/upload/hospital-image/${hospitalId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${userInfo.token}` },
+                body: formData
+            });
+
+            if (res.ok) {
+                alert('Image uploaded successfully!');
+                fetchHospitals(); // Refresh to show any possible updates
+            } else {
+                const data = await res.json();
+                alert(`Error: ${data.message}`);
+            }
+        } catch (error) {
+            alert('Failed to connect to the backend server.');
+        }
+    };
+
     // --- DELETE HANDLERS ---
     const handleDeleteCity = async (id) => {
         if (!window.confirm("Are you sure you want to delete this city?")) return;
@@ -307,7 +333,13 @@ const AdminDashboard = () => {
                                                     <td>{h.type || 'General'}</td>
                                                     <td>{h.phone || 'N/A'}<br/><small>{h.email || ''}</small></td>
                                                     <td style={{ color: h.status === 'Active' ? 'green' : 'red' }}>{h.status}</td>
-                                                    <td><button onClick={() => handleDeleteHospital(h._id)} className="btn btn-outline" style={{ fontSize: '0.7rem', color: 'red', borderColor: 'red' }}>Delete</button></td>
+                                                    <td>
+                                                        <label className="btn btn-outline" style={{ fontSize: '0.7rem', color: 'var(--primary-teal)', borderColor: 'var(--primary-teal)', cursor: 'pointer', marginRight: '5px', display: 'inline-block' }}>
+                                                            Upload Image
+                                                            <input type="file" style={{ display: 'none' }} accept="image/*" onChange={(e) => handleImageUpload(e, h._id)} />
+                                                        </label>
+                                                        <button onClick={() => handleDeleteHospital(h._id)} className="btn btn-outline" style={{ fontSize: '0.7rem', color: 'red', borderColor: 'red' }}>Delete</button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>

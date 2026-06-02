@@ -6,6 +6,7 @@ import { protect } from '../middleware/authMiddleware.js';
 import LabReport from '../models/LabReport.js';
 import User from '../models/User.js';
 import Prescription from '../models/Prescription.js';
+import Hospital from '../models/Hospital.js';
 
 const router = express.Router();
 
@@ -126,6 +127,40 @@ router.post('/prescription', protect, upload.single('prescription'), async (req,
         });
     } catch (error) {
         res.status(500).json({ message: 'Failed to save prescription', error: error.message });
+    }
+});
+
+// @desc    Upload hospital image
+// @route   POST /api/upload/hospital-image/:hospitalId
+// @access  Private/Web Admin
+router.post('/hospital-image/:hospitalId', protect, upload.single('image'), async (req, res) => {
+    if (req.user.role !== 'Web Admin') {
+        return res.status(403).json({ message: 'Only Web Admins can upload hospital images' });
+    }
+
+    if (!req.file) {
+        return res.status(400).send({ message: 'No file uploaded' });
+    }
+
+    try {
+        const hospitalId = req.params.hospitalId;
+        const hospital = await Hospital.findById(hospitalId);
+
+        if (!hospital) {
+            return res.status(404).json({ message: 'Hospital not found' });
+        }
+
+        const savedPath = `/${req.file.path.replace(/\\/g, '/')}`;
+
+        hospital.images.push(savedPath);
+        await hospital.save();
+
+        res.status(201).json({
+            message: 'Image uploaded successfully',
+            filePath: savedPath
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to upload hospital image', error: error.message });
     }
 });
 

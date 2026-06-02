@@ -25,6 +25,9 @@ const hospitalSchema = new mongoose.Schema(
             type: String,
             trim: true
         },
+        images: [{
+            type: String
+        }],
         type: {
             type: String,
             enum: ['General', 'Specialized', 'Clinic', 'Other'],

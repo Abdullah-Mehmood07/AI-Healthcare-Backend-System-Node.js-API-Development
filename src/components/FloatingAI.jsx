@@ -72,20 +72,15 @@ const FloatingAI = () => {
 
 
 
-    const handleOptionClick = async (optionText, responseText) => {
+    const handleOptionClick = (optionText, responseText) => {
         const newHistory = [...messages, { sender: 'user', text: optionText }];
         setMessages(newHistory);
         setIsTyping(true);
         
-        const conversation = await callConversationApi(newHistory);
-        setIsTyping(false);
-
-        if (!conversation.ok) {
-            setMessages(prev => [...prev, { sender: 'ai', text: conversation.message }]);
-            return;
-        }
-
-        setMessages(prev => [...prev, { sender: 'ai', text: conversation.data.reply }]);
+        setTimeout(() => {
+            setMessages(prev => [...prev, { sender: 'ai', text: responseText }]);
+            setIsTyping(false);
+        }, 600);
     };
 
     const handleSendMessage = async (e) => {
