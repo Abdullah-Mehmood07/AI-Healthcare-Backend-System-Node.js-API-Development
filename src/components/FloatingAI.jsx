@@ -27,31 +27,41 @@ const FloatingAI = () => {
         scrollToBottom();
     }, [messages, isTyping]);
 
-    const callTriageApi = async (symptomsText) => {
+    const callConversationApi = async (history) => {
         const token = localStorage.getItem('caresync_user_token');
         if (!token) {
             return {
                 ok: false,
-                message: 'Please login first to use AI triage and specialist recommendation.'
+                message: 'Please login first to use the CareSync AI.'
             };
         }
 
+        // Ideally, we fetch the user's hospitalId. For now, we'll try to extract it from a local variable if it exists, or pass null and let the backend handle it.
+        const userStr = localStorage.getItem('caresync_user');
+        let hospitalId = null;
+        if (userStr) {
+            try {
+                const userObj = JSON.parse(userStr);
+                hospitalId = userObj.hospitalId || null;
+            } catch (e) {}
+        }
+
         try {
-            const res = await fetch(`${API_BASE}/ai/triage`, {
+            const res = await fetch(`${API_BASE}/ai/conversation`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    symptoms: symptomsText,
-                    includeAiExplanation: true
+                    history: history,
+                    hospitalId: hospitalId
                 })
             });
 
             const data = await res.json();
             if (!res.ok) {
-                return { ok: false, message: data.message || 'AI triage failed.' };
+                return { ok: false, message: data.message || 'AI conversation failed.' };
             }
 
             return { ok: true, data };
@@ -60,39 +70,22 @@ const FloatingAI = () => {
         }
     };
 
-    const formatTriageReply = (triageData) => {
-        const classifier = triageData?.classifier;
-        const ai = triageData?.aiExplanation;
 
-        let text = 'I could not generate a recommendation from the current input.';
-        if (classifier?.predictedSpecialist) {
-            const confidencePct = Math.round((classifier.confidence || 0) * 100);
-            text = `Recommended specialist: ${classifier.predictedSpecialist} (confidence ${confidencePct}%).`;
-        }
 
-        if (ai?.rationale) {
-            text += `\nWhy: ${ai.rationale}`;
-        }
-
-        if (ai?.urgency) {
-            text += `\nUrgency: ${ai.urgency}`;
-        }
-
-        if (ai?.nextStep) {
-            text += `\nNext step: ${ai.nextStep}`;
-        }
-
-        return text;
-    };
-
-    const handleOptionClick = (optionText, responseText) => {
-        setMessages(prev => [...prev, { sender: 'user', text: optionText }]);
+    const handleOptionClick = async (optionText, responseText) => {
+        const newHistory = [...messages, { sender: 'user', text: optionText }];
+        setMessages(newHistory);
         setIsTyping(true);
         
-        setTimeout(() => {
-            setIsTyping(false);
-            setMessages(prev => [...prev, { sender: 'ai', text: responseText }]);
-        }, 600);
+        const conversation = await callConversationApi(newHistory);
+        setIsTyping(false);
+
+        if (!conversation.ok) {
+            setMessages(prev => [...prev, { sender: 'ai', text: conversation.message }]);
+            return;
+        }
+
+        setMessages(prev => [...prev, { sender: 'ai', text: conversation.data.reply }]);
     };
 
     const handleSendMessage = async (e) => {
@@ -100,25 +93,25 @@ const FloatingAI = () => {
         if (!inputValue.trim()) return;
 
         const symptomsText = inputValue;
-        setMessages(prev => [...prev, { sender: 'user', text: symptomsText }]);
+        const newHistory = [...messages, { sender: 'user', text: symptomsText }];
+        setMessages(newHistory);
         setInputValue('');
         setIsTyping(true);
 
-        const triage = await callTriageApi(symptomsText);
+        const conversation = await callConversationApi(newHistory);
         setIsTyping(false);
 
-        if (!triage.ok) {
+        if (!conversation.ok) {
             setMessages(prev => [...prev, {
                 sender: 'ai',
-                text: triage.message
+                text: conversation.message
             }]);
             return;
         }
 
-        const finalReply = formatTriageReply(triage.data);
         setMessages(prev => [...prev, {
             sender: 'ai',
-            text: finalReply
+            text: conversation.data.reply
         }]);
     };
 

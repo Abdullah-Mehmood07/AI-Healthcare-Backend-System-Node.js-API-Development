@@ -1,10 +1,11 @@
 import express from 'express';
 import { protect } from '../middleware/authMiddleware.js';
-import { generateLabSummary, generateSpecialistRecommendation, generatePrescriptionExplanation } from '../services/geminiService.js';
+import { generateLabSummary, generateSpecialistRecommendation, generatePrescriptionExplanation, processConversation } from '../services/geminiService.js';
 import { classifySpecialistFromSymptoms } from '../services/specialistClassifierService.js';
 import LabReport from '../models/LabReport.js';
 import Prescription from '../models/Prescription.js';
 import Message from '../models/Message.js';
+import Doctor from '../models/Doctor.js';
 
 const router = express.Router();
 
@@ -31,16 +32,61 @@ router.get('/health', protect, (req, res) => {
     });
 });
 
+router.post('/conversation', protect, async (req, res) => {
+    const { history, hospitalId } = req.body;
+
+    if (!history || !Array.isArray(history) || history.length === 0) {
+        return res.status(400).json({ message: 'history array is required' });
+    }
+
+    try {
+        const toolsConfig = {
+            predictSpecialist: async (symptoms) => {
+                const result = await classifySpecialistFromSymptoms({ symptoms });
+                return { specialist: result.predictedSpecialist };
+            },
+            findDoctors: async (specialty, hid) => {
+                if (!hid) return { doctors: [], message: "No hospital ID provided by user." };
+                const doctors = await Doctor.find({
+                    hospital: hid,
+                    specialty: specialty,
+                    status: 'Active'
+                }).select('name specialty weeklySchedule').lean();
+                return { doctors };
+            }
+        };
+
+        const reply = await processConversation(history, hospitalId, toolsConfig);
+        res.json({ reply });
+    } catch (error) {
+        console.error("Conversation Error:", error);
+        res.status(500).json({ message: 'Conversation failed', error: error.message });
+    }
+});
+
 router.post('/triage', protect, async (req, res) => {
-    const { symptoms, age, gender, includeAiExplanation = true } = req.body;
+    const { symptoms, age, gender, includeAiExplanation = true, hospitalId } = req.body;
 
     if (!symptoms || typeof symptoms !== 'string') {
         return res.status(400).json({ message: 'symptoms (string) is required' });
     }
 
     try {
-        const classifier = classifySpecialistFromSymptoms({ symptoms });
+        const classifier = await classifySpecialistFromSymptoms({ symptoms });
         let aiExplanation = null;
+        let recommendedDoctors = [];
+
+        if (hospitalId && classifier.predictedSpecialist) {
+            try {
+                recommendedDoctors = await Doctor.find({
+                    hospital: hospitalId,
+                    specialty: classifier.predictedSpecialist,
+                    status: 'Active'
+                }).select('name specialty weeklySchedule');
+            } catch (err) {
+                console.error("Error fetching recommended doctors:", err);
+            }
+        }
 
         if (includeAiExplanation) {
             try {
@@ -53,7 +99,8 @@ router.post('/triage', protect, async (req, res) => {
 
         res.json({
             classifier,
-            aiExplanation
+            aiExplanation,
+            recommendedDoctors
         });
     } catch (error) {
         res.status(500).json({ message: 'AI triage failed', error: error.message });
@@ -61,15 +108,32 @@ router.post('/triage', protect, async (req, res) => {
 });
 
 router.post('/classify-specialist', protect, async (req, res) => {
-    const { symptoms } = req.body;
+    const { symptoms, hospitalId } = req.body;
 
     if (!symptoms || typeof symptoms !== 'string') {
         return res.status(400).json({ message: 'symptoms (string) is required' });
     }
 
     try {
-        const classifier = classifySpecialistFromSymptoms({ symptoms });
-        res.json(classifier);
+        const classifier = await classifySpecialistFromSymptoms({ symptoms });
+        let recommendedDoctors = [];
+
+        if (hospitalId && classifier.predictedSpecialist) {
+            try {
+                recommendedDoctors = await Doctor.find({
+                    hospital: hospitalId,
+                    specialty: classifier.predictedSpecialist,
+                    status: 'Active'
+                }).select('name specialty weeklySchedule');
+            } catch (err) {
+                console.error("Error fetching recommended doctors:", err);
+            }
+        }
+
+        res.json({
+            ...classifier,
+            recommendedDoctors
+        });
     } catch (error) {
         res.status(500).json({ message: 'Specialist classification failed', error: error.message });
     }
