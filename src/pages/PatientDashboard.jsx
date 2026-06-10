@@ -14,6 +14,7 @@ const PatientDashboard = () => {
     const [myAppointments, setMyAppointments] = useState([]);
     const [myReports, setMyReports] = useState([]);
     const [filterByHosp, setFilterByHosp] = useState(true);
+    const [doctorFilterPatient, setDoctorFilterPatient] = useState('');
     
     // Chat states
     const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -22,7 +23,7 @@ const PatientDashboard = () => {
 
     // Booking Form State
     const [bookingData, setBookingData] = useState({
-        hospitalId: '', doctorId: '', department: 'General Medicine', date: '', timeSlot: '10:00 AM - 10:30 AM'
+        hospitalId: '', doctorId: '', department: '', date: '', timeSlot: '10:00 AM - 10:30 AM'
     });
 
     // Persisted Hospital Info
@@ -199,9 +200,11 @@ const PatientDashboard = () => {
     };
 
     const handleGetAiExplanation = async (presId) => {
+        const textToExplain = prescriptionText.trim();
+        if (!textToExplain) {
+            return alert("Please type or paste the prescription text in the text area above to generate an AI explanation.");
+        }
         setExplainingPres(true);
-        const textToExplain = prescriptionText.trim() || 
-            "Rx: Paracetamol 500mg. Take 1 tablet every 6 hours as needed for fever/pain. Max 4 tablets daily. Amoxicillin 500mg. Take 1 capsule 3 times daily for 7 days until finished. Take after food. Caution: may cause mild drowsiness.";
         
         try {
             const res = await fetch(`http://localhost:5000/api/ai/explain-prescription/${presId}`, {
@@ -514,18 +517,18 @@ const PatientDashboard = () => {
                                     </div>
                                     <div className="form-group" style={{ marginBottom: '1rem' }}>
                                         <label>Select Department Option</label>
-                                        <select required value={bookingData.department} onChange={(e) => setBookingData({...bookingData, department: e.target.value})} style={{ marginBottom: '1rem', width: '100%', padding: '8px' }}>
-                                            <option>General Medicine</option>
-                                            <option>Cardiology</option>
-                                            <option>Dermatology</option>
-                                            <option>Pediatrics</option>
+                                        <select required value={bookingData.department} onChange={(e) => setBookingData({...bookingData, department: e.target.value, doctorId: ''})} style={{ marginBottom: '1rem', width: '100%', padding: '8px' }}>
+                                            <option value="">-- Choose Department --</option>
+                                            {Array.from(new Set(doctors.map(d => d.specialty?.trim()))).filter(Boolean).sort().map(dep => (
+                                                <option key={dep} value={dep}>{dep}</option>
+                                            ))}
                                         </select>
                                     </div>
                                     <div className="form-group" style={{ marginBottom: '1rem' }}>
                                         <label>Select Available Doctor</label>
-                                        <select required disabled={!bookingData.hospitalId || doctors.length === 0} value={bookingData.doctorId} onChange={(e) => setBookingData({...bookingData, doctorId: e.target.value})} style={{ marginBottom: '1rem', width: '100%', padding: '8px' }}>
-                                            {doctors.length === 0 ? <option value="">No doctors available</option> : null}
-                                            {doctors.map(d => (
+                                        <select required disabled={!bookingData.hospitalId || !bookingData.department} value={bookingData.doctorId} onChange={(e) => setBookingData({...bookingData, doctorId: e.target.value})} style={{ marginBottom: '1rem', width: '100%', padding: '8px' }}>
+                                            <option value="">-- Select Doctor --</option>
+                                            {doctors.filter(d => d.specialty?.trim() === bookingData.department).map(d => (
                                                 <option key={d._id} value={d._id}>{d.name} ({d.specialty})</option>
                                             ))}
                                         </select>
@@ -588,18 +591,26 @@ const PatientDashboard = () => {
 
                     {activeTab === 'schedule' && (
                         <section className="panel-section active">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
                                 <h2>Doctors Network Status</h2>
-                                {selectedHospitalId && (
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', background: '#F8FAFC', padding: '0.4rem 0.8rem', borderRadius: '4px', border: '1px solid #E2E8F0', fontSize: '0.9rem' }}>
-                                        <input type="checkbox" checked={filterByHosp} onChange={(e) => setFilterByHosp(e.target.checked)} />
-                                        Only show {selectedHospitalName} doctors
-                                    </label>
-                                )}
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                    <select value={doctorFilterPatient} onChange={(e) => setDoctorFilterPatient(e.target.value)} style={{ padding: '0.4rem 0.8rem', borderRadius: '4px', border: '1px solid #E2E8F0', fontSize: '0.9rem' }}>
+                                        <option value="">All Departments</option>
+                                        {Array.from(new Set(doctorsGlobal.map(d => d.specialty?.trim()))).filter(Boolean).sort().map((dep, idx) => (
+                                            <option key={idx} value={dep}>{dep}</option>
+                                        ))}
+                                    </select>
+                                    {selectedHospitalId && (
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', background: '#F8FAFC', padding: '0.4rem 0.8rem', borderRadius: '4px', border: '1px solid #E2E8F0', fontSize: '0.9rem' }}>
+                                            <input type="checkbox" checked={filterByHosp} onChange={(e) => setFilterByHosp(e.target.checked)} />
+                                            Only show {selectedHospitalName} doctors
+                                        </label>
+                                    )}
+                                </div>
                             </div>
                             <div style={{ marginTop: '1rem' }}>
-                                {doctorsGlobal.filter(doc => !filterByHosp || !selectedHospitalId || doc.hospital?._id === selectedHospitalId || doc.hospital === selectedHospitalId).length === 0 ? <p>No doctors found matching the filter.</p> : null}
-                                {doctorsGlobal.filter(doc => !filterByHosp || !selectedHospitalId || doc.hospital?._id === selectedHospitalId || doc.hospital === selectedHospitalId).map(doc => (
+                                {doctorsGlobal.filter(doc => (!filterByHosp || !selectedHospitalId || doc.hospital?._id === selectedHospitalId || doc.hospital === selectedHospitalId) && (!doctorFilterPatient || doc.specialty?.trim() === doctorFilterPatient)).length === 0 ? <p>No doctors found matching the filter.</p> : null}
+                                {doctorsGlobal.filter(doc => (!filterByHosp || !selectedHospitalId || doc.hospital?._id === selectedHospitalId || doc.hospital === selectedHospitalId) && (!doctorFilterPatient || doc.specialty?.trim() === doctorFilterPatient)).map(doc => (
                                     <div key={doc._id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'white', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid #E2E8F0', marginBottom: '1rem' }}>
                                         <div style={{ width: '50px', height: '50px', background: '#eee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <i className="fas fa-user-md" style={{ fontSize: '1.5rem', color: 'var(--primary-teal)' }}></i>

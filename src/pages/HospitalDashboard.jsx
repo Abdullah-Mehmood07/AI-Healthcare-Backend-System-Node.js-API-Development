@@ -17,6 +17,9 @@ const HospitalDashboard = () => {
     const [newPaData, setNewPaData] = useState({ name: '', email: '', password: '', doctorId: '' });
     const [newPatientData, setNewPatientData] = useState({ name: '', national_id: '', email: '', password: '', mrNumber: '' });
     const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '' });
+    const [departments, setDepartments] = useState([]);
+    const [newDepartment, setNewDepartment] = useState('');
+    const [doctorFilter, setDoctorFilter] = useState('');
 
     useEffect(() => {
         if (!userInfo.token || userInfo.role !== 'Hospital Admin') {
@@ -35,6 +38,7 @@ const HospitalDashboard = () => {
                 
                 if (myHospital) {
                     setHospitalName({ name: myHospital.name, city: myHospital.city?.name || '' });
+                    setDepartments(myHospital.departments || []);
                     fetchDoctors(userInfo.hospitalId);
                     fetchServices(userInfo.hospitalId);
                 } else {
@@ -276,6 +280,58 @@ const HospitalDashboard = () => {
         }
     };
 
+    const handleAddDepartment = async (e) => {
+        e.preventDefault();
+        if (!newDepartment.trim()) return;
+        const updatedDeps = [...departments, newDepartment.trim()];
+        try {
+            const res = await fetch(`http://localhost:5000/api/hospitals/${userInfo.hospitalId}/departments`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${userInfo.token}`
+                },
+                body: JSON.stringify({ departments: updatedDeps })
+            });
+            if (res.ok) {
+                setDepartments(updatedDeps);
+                setNewDepartment('');
+                alert('Department added successfully!');
+            } else {
+                const err = await res.json();
+                alert(`Error: ${err.message}`);
+            }
+        } catch (error) {
+            alert('Failed to update departments.');
+        }
+    };
+
+    const handleDeleteDepartment = async (dep) => {
+        if (!window.confirm(`Remove the ${dep} department?`)) return;
+        const updatedDeps = departments.filter(d => d !== dep);
+        try {
+            const res = await fetch(`http://localhost:5000/api/hospitals/${userInfo.hospitalId}/departments`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${userInfo.token}`
+                },
+                body: JSON.stringify({ departments: updatedDeps })
+            });
+            if (res.ok) {
+                setDepartments(updatedDeps);
+                alert('Department removed.');
+            } else {
+                const err = await res.json();
+                alert(`Error: ${err.message}`);
+            }
+        } catch (error) {
+            alert('Failed to update departments.');
+        }
+    };
+
+    const filteredDoctors = doctorFilter ? doctors.filter(d => d.specialty === doctorFilter) : doctors;
+
     return (
         <div style={{ paddingBottom: '4rem' }}>
             <div style={{ background: 'var(--white)', padding: '1rem', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -293,6 +349,9 @@ const HospitalDashboard = () => {
                 <aside className="sidebar" style={{ width: '250px', background: 'var(--white)', borderRight: '1px solid #CCFBF1', padding: '2rem 0', display: 'flex', flexDirection: 'column' }}>
                     <div className={`sidebar-item ${activeTab === 'doctors' ? 'active' : ''}`} onClick={() => setActiveTab('doctors')} style={{ padding: '1rem 2rem', cursor: 'pointer', transition: 'all 0.3s', fontWeight: 500 }}>
                         <i className="fas fa-user-md" style={{ marginRight: '10px' }}></i> Manage Doctors
+                    </div>
+                    <div className={`sidebar-item ${activeTab === 'departments' ? 'active' : ''}`} onClick={() => setActiveTab('departments')} style={{ padding: '1rem 2rem', cursor: 'pointer', transition: 'all 0.3s', fontWeight: 500 }}>
+                        <i className="fas fa-sitemap" style={{ marginRight: '10px' }}></i> Departments
                     </div>
                     <div className={`sidebar-item ${activeTab === 'patients' ? 'active' : ''}`} onClick={() => setActiveTab('patients')} style={{ padding: '1rem 2rem', cursor: 'pointer', transition: 'all 0.3s', fontWeight: 500 }}>
                         <i className="fas fa-user-injured" style={{ marginRight: '10px' }}></i> Register Patient
@@ -319,7 +378,12 @@ const HospitalDashboard = () => {
                             
                             <form onSubmit={handleAddDoctor} className="glass-card" style={{ marginBottom: '2rem', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', padding: '1rem' }}>
                                 <input type="text" placeholder="Dr. Name" required value={newDoctorData.name} onChange={(e) => setNewDoctorData({...newDoctorData, name: e.target.value})} style={{ flex: 1, minWidth: '180px' }} />
-                                <input type="text" placeholder="Specialty (e.g. Cardiology)" required value={newDoctorData.specialty} onChange={(e) => setNewDoctorData({...newDoctorData, specialty: e.target.value})} style={{ flex: 1, minWidth: '180px' }} />
+                                <select required value={newDoctorData.specialty} onChange={(e) => setNewDoctorData({...newDoctorData, specialty: e.target.value})} style={{ flex: 1, minWidth: '180px' }}>
+                                    <option value="">-- Select Department --</option>
+                                    {departments.map((dep, idx) => (
+                                        <option key={idx} value={dep}>{dep}</option>
+                                    ))}
+                                </select>
                                 <input type="text" placeholder="Emergency Ext" value={newDoctorData.emergencyExtension} onChange={(e) => setNewDoctorData({...newDoctorData, emergencyExtension: e.target.value})} style={{ flex: 1, minWidth: '120px' }} />
                                 <select value={newDoctorData.status} onChange={(e) => setNewDoctorData({...newDoctorData, status: e.target.value})}>
                                     <option value="Active">Active</option>
@@ -330,7 +394,16 @@ const HospitalDashboard = () => {
                             </form>
 
                             <div className="glass-card">
-                                {doctors.length === 0 ? <p>No doctors found in this facility.</p> : (
+                                <div style={{ marginBottom: '1rem', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                    <strong>Filter:</strong>
+                                    <select value={doctorFilter} onChange={(e) => setDoctorFilter(e.target.value)} style={{ padding: '5px' }}>
+                                        <option value="">All Departments</option>
+                                        {departments.map((dep, idx) => (
+                                            <option key={idx} value={dep}>{dep}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {filteredDoctors.length === 0 ? <p>No doctors found.</p> : (
                                     <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                                         <thead>
                                             <tr style={{ borderBottom: '1px solid #eee' }}>
@@ -342,7 +415,7 @@ const HospitalDashboard = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {doctors.map(doc => (
+                                            {filteredDoctors.map(doc => (
                                                 <tr key={doc._id}>
                                                     <td style={{ padding: '10px' }}>{doc.name}</td>
                                                     <td>{doc.specialty}</td>
@@ -355,6 +428,35 @@ const HospitalDashboard = () => {
                                             ))}
                                         </tbody>
                                     </table>
+                                )}
+                            </div>
+                        </section>
+                    )}
+
+                    {activeTab === 'departments' && (
+                        <section className="panel-section active">
+                            <h2>Manage Hospital Departments</h2>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Add or remove departments for your hospital. Doctors must be assigned to an existing department.</p>
+
+                            <div className="glass-card" style={{ maxWidth: '600px', marginBottom: '2rem' }}>
+                                <h4>Add New Department</h4>
+                                <form onSubmit={handleAddDepartment} style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
+                                    <input type="text" placeholder="Department Name (e.g., Cardiology)" required value={newDepartment} onChange={(e) => setNewDepartment(e.target.value)} style={{ flex: 1 }} />
+                                    <button type="submit" className="btn btn-primary">Add</button>
+                                </form>
+                            </div>
+
+                            <div className="glass-card" style={{ maxWidth: '600px' }}>
+                                <h4>Current Departments</h4>
+                                {departments.length === 0 ? <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>No departments added yet.</p> : (
+                                    <ul style={{ listStyle: 'none', padding: 0, marginTop: '1rem' }}>
+                                        {departments.map((dep, idx) => (
+                                            <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
+                                                <span>{dep}</span>
+                                                <button onClick={() => handleDeleteDepartment(dep)} className="btn btn-outline" style={{ padding: '2px 8px', fontSize: '0.8rem', color: 'red', borderColor: 'red' }}>Remove</button>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 )}
                             </div>
                         </section>

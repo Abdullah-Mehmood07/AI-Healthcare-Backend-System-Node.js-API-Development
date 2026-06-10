@@ -11,7 +11,7 @@ const getClient = () => {
 
 const getModel = () => {
     const client = getClient();
-    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-flash-latest';
     return client.getGenerativeModel({ model: modelName });
 };
 
@@ -114,7 +114,7 @@ export const processConversation = async (history, hospitalId, toolsConfig) => {
         },
     ];
 
-    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-flash-latest';
     const model = client.getGenerativeModel({ 
         model: modelName,
         tools: tools,

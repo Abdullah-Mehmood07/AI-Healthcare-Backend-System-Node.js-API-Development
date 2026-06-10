@@ -203,10 +203,12 @@ export const sendCustomEmail = async (email, subject, htmlContent) => {
 export const verifyEmailConfiguration = async () => {
     try {
         await transporter.verify();
-        console.log('Email service is ready to send emails');
+        console.log('you can check your email');
         return true;
     } catch (error) {
         console.error('Email service configuration error:', error);
         return false;
     }
+    
 };
+

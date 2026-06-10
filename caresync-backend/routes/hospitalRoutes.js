@@ -1,7 +1,7 @@
 import express from 'express';
 import Hospital from '../models/Hospital.js';
 import City from '../models/City.js';
-import { protect, adminOnly } from '../middleware/authMiddleware.js';
+import { protect, adminOnly, hospitalAdminOnly } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -89,6 +89,30 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
         }
     } catch (error) {
         res.status(500).json({ message: 'Server Error deleting hospital' });
+    }
+});
+
+// @desc    Update hospital departments
+// @route   PUT /api/hospitals/:id/departments
+// @access  Private/Hospital Admin
+router.put('/:id/departments', protect, hospitalAdminOnly, async (req, res) => {
+    try {
+        const hospital = await Hospital.findById(req.params.id);
+
+        if (hospital) {
+            // Admin must belong to the hospital they are trying to update
+            if (req.user.role === 'Hospital Admin' && req.user.hospitalId.toString() !== req.params.id) {
+                return res.status(403).json({ message: 'Not authorized to update this hospital' });
+            }
+
+            hospital.departments = req.body.departments || hospital.departments;
+            const updatedHospital = await hospital.save();
+            res.json(updatedHospital);
+        } else {
+            res.status(404).json({ message: 'Hospital not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error updating departments' });
     }
 });
 

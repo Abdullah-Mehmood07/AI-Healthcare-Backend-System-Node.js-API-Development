@@ -13,7 +13,6 @@ const Home = () => {
   const [hospitalConfirmed, setHospitalConfirmed] = useState(false);
   const [cities, setCities] = useState([]);
   const [hospitals, setHospitals] = useState([]);
-  const [hospitalServices, setHospitalServices] = useState([]);
 
   const defaultImages = ['/assets/image 2.jpg', '/assets/image 4.jpg', '/assets/image 5.jpg'];
 
@@ -56,15 +55,6 @@ const Home = () => {
       localStorage.setItem('selectedHospital', hospital);
       localStorage.setItem('selectedHospitalName', hospital);
       localStorage.setItem('selectedHospitalId', hospitalId);
-
-      try {
-        const res = await fetch(`${API_URL}/services/hospital/${hospitalId}`);
-        const data = await res.json();
-        setHospitalServices(data && !data.message ? data : []);
-      } catch (error) {
-        console.error("Failed to fetch hospital services", error);
-        setHospitalServices([]);
-      }
     }
   };
 
@@ -154,26 +144,35 @@ const Home = () => {
 
           <section id="services">
             <div className="text-center">
-              <h2>Services Offered</h2>
-              <p style={{ color: 'var(--text-muted)' }}>Explore the medical services available at {hospital}</p>
-              <div style={{ width: '60px', height: '4px', background: 'var(--primary-teal)', margin: '0.5rem auto 2rem auto' }}></div>
+              <h2>Our Premium Services</h2>
+              <div style={{ width: '60px', height: '4px', background: 'var(--primary-teal)', margin: '0.5rem auto' }}></div>
             </div>
 
-            {hospitalServices.length > 0 ? (
-                <div className="services-grid">
-                  {hospitalServices.map(service => (
-                    <div key={service._id} className="glass-card service-card" onClick={() => navigate('/login')} style={{ cursor: 'pointer' }}>
-                      <div className="service-icon"><i className="fas fa-stethoscope"></i></div>
-                      <h3>{service.name}</h3>
-                      <p>{service.description}</p>
-                    </div>
-                  ))}
-                </div>
-            ) : (
-                <div className="text-center" style={{ padding: '2rem' }}>
-                   <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem' }}>No specific services listed for this facility at the moment.</p>
-                </div>
-            )}
+            <div className="services-grid">
+              <div className="glass-card service-card" onClick={() => navigate('/login')} style={{ cursor: 'pointer' }}>
+                <div className="service-icon"><i className="fas fa-user-md"></i></div>
+                <h3>Smart Doctor Schedule</h3>
+                <p>View real-time doctor availability and duty matrix.</p>
+              </div>
+
+              <div className="glass-card service-card" onClick={() => navigate('/emergency-public')} style={{ cursor: 'pointer', border: '1px solid #FECACA' }}>
+                <div className="service-icon"><i className="fas fa-ambulance" style={{ color: '#DC2626' }}></i></div>
+                <h3>Free Emergency Response</h3>
+                <p>Instant access to emergency numbers and doctors. No login required.</p>
+              </div>
+
+              <div className="glass-card service-card" onClick={() => navigate('/login')} style={{ cursor: 'pointer' }}>
+                <div className="service-icon"><i className="fas fa-robot"></i></div>
+                <h3>AI Health Assistant</h3>
+                <p>Get smart recommendations for your symptoms.</p>
+              </div>
+
+              <div className="glass-card service-card" onClick={() => navigate('/login')} style={{ cursor: 'pointer' }}>
+                <div className="service-icon"><i className="fas fa-flask"></i></div>
+                <h3>Smart Lab Reports</h3>
+                <p>Instant SMS/Email alerts for your test results.</p>
+              </div>
+            </div>
           </section>
 
           <section className="testimonials-section">

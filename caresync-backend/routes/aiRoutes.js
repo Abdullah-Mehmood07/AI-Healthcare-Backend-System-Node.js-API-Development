@@ -27,7 +27,7 @@ router.get('/health', protect, (req, res) => {
     res.json({
         status: 'ok',
         geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
-        model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+        model: process.env.GEMINI_MODEL || 'gemini-flash-latest',
         classifierDatasetPath: process.env.CLASSIFIER_DATASET_PATH || '../Healthcare_5000_with_Specialist.csv'
     });
 });
